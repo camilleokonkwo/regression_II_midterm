@@ -1,0 +1,40 @@
+---
+title: "throwaway"
+author: "Camille Okonkwo"
+date: "2024-03-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# K-M curve and log-rank test
+km_curve <- survfit(Surv(time, censor) ~ sex + raceth + ivdrug, 
+                  data = midtermdata)
+
+logrank_curve <- survdiff(Surv(time, censor) ~ sex + raceth + ivdrug, data = midtermdata)
+
+# K-M curve and log-rank test for sex
+km_sex <- survfit(Surv(time, censor) ~ sex,
+                     data = midtermdata)
+
+logrank_sex <- survdiff(Surv(time, censor) ~ sex,
+                           data = midtermdata)
+
+# K-M curve and log-rank test for race
+km_raceth <- survfit(Surv(time, censor) ~ raceth,
+                     data = midtermdata)
+
+logrank_raceth <- survdiff(Surv(time, censor) ~ raceth,
+                           data = midtermdata)
+
+# K-M curve and log-rank test for IV-drug
+km_ivdrug <- survfit(Surv(time, censor) ~ ivdrug,
+                     data = midtermdata)
+
+logrank_ivdrug <- survdiff(Surv(time, censor) ~ ivdrug,
+                           data = midtermdata)
+```
+

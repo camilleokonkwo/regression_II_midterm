@@ -1,0 +1,425 @@
+---
+title: "Midterm Project"
+author: "Camille Okonkwo"
+date: "2024-02-26"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(broom)
+library(table1)
+library(survival)
+library(ggsurvfit)
+library(survival)
+library(lmtest)
+library(gt)
+library(survMisc)
+library(MASS)
+```
+
+### Step 0: Data Preparation
+```{r step_0}
+# loading data
+midtermdata = read_csv("data/midtermdata.csv")
+
+# combining categories, creating factor variables, and labelling
+
+# Recode the variables
+midtermdata$tx <- factor(
+  midtermdata$tx,
+  levels = c("0", "1"))
+
+midtermdata$strat2 <- factor(
+  midtermdata$strat2,
+  levels = c("1", "0"))
+
+midtermdata$sex <- factor(
+  midtermdata$sex,
+  levels = c("2", "1"))
+  
+midtermdata$raceth <- factor(
+  ifelse(midtermdata$raceth %in% c(3, 4, 5, 6), 6, midtermdata$raceth),
+  levels = c("1", "2", "6"))
+
+midtermdata$ivdrug <- factor(
+  ifelse(midtermdata$ivdrug %in% c(2, 3), 2, midtermdata$ivdrug), 
+  levels = c("2", "1"))
+
+midtermdata$hemophil <- 
+  factor(midtermdata$hemophil, 
+         levels = c("0", "1"))
+
+midtermdata$karnof <- factor(
+  ifelse(midtermdata$karnof %in% c(80, 70), 70, midtermdata$karnof),
+  levels = c("100", "90", "70"))
+```
+
+# Descriptive statistics
+```{r}
+# data exploration
+summary(midtermdata)
+
+# Summarize Baseline Characteristics
+library(table1)
+
+# Define variable labels
+table1::label(midtermdata$tx) <- "Treatment"
+table1::label(midtermdata$age) <- "Age at Enrollment"
+table1::label(midtermdata$cd4) <- "Baseline CD4 Count (cells/mL)"
+table1::label(midtermdata$karnof) <- "Karnofsky Performance Scale*"
+table1::label(midtermdata$ivdrug) <- "IV Drug Use History*"
+table1::label(midtermdata$strat2) <- "CD4 Stratum at Screening"
+table1::label(midtermdata$sex) <- "Sex"
+table1::label(midtermdata$raceth) <- "Race/Ethnicity*"
+table1::label(midtermdata$hemophil) <- "Hemophiliac"
+table1::label(midtermdata$priorzdv) <- "Months of prior ZDV use"
+
+# Create a summary table with variable labels
+summary_table <- table1(
+  ~ age + cd4 + karnof + ivdrug + strat2 + sex + raceth + priorzdv | tx,
+  data = midtermdata, 
+  footnote = "*Race/Ethnicity, Karnofsky Performance Scale, and IV drug use history variables were recoded due to low patient counts.",
+  caption = "Descriptive Statistics of Baseline Characteristics in HIV Clinical Trial Participants")
+
+print(summary_table)
+```
+
+is there sufficient evidence that the three-drug regimen has better PFS compared to the two-drug regimen?
+```{r PFS_step1}
+library(survival)
+
+# PFS K-M table
+km_pfs = survfit(Surv(time, censor) ~ tx, data = midtermdata, conf.type = "log-log")
+
+summary(km_pfs)
+
+# log-rank test
+log_rank_PFS <- survdiff(Surv(time, censor) ~ tx, data = midtermdata)
+
+# Extract relevant information
+chi_squared <- log_rank_PFS$chisq
+degrees_of_freedom <- length(log_rank_PFS$n) - 1
+p_value <- pchisq(chi_squared, degrees_of_freedom, lower.tail = FALSE)
+
+# Create a custom table
+PFS_logrank <- data.frame(
+  "Chi-Squared" = chi_squared,
+  "Degrees of Freedom" = degrees_of_freedom,
+  "P-Value" = p_value
+)
+
+# Display the custom table
+knitr::kable(PFS_logrank, caption = "Log-Rank Test Results for PFS", digits = 5)
+
+library(ggsurvfit)
+
+# PFS K-M plot
+survfit2(Surv(time, censor) ~ tx, data = midtermdata) |> 
+  ggsurvfit() +
+  add_pvalue(location = "annotation", 
+             caption = "Log-rank {p.value}") +
+  add_confidence_interval() +
+  add_risktable() +
+  add_censor_mark() +
+  add_legend_title(title = "PFS Curve")
+```
+#### Our hypotheses:
+( where s1(t) is tx = 0 and s2(t) is tx = 1)
+* H0 :S1(t) = S2(t), for all t ≤ τ
+* Hα :One of the Sk (t) is different for some t ≤ τ
+
+#### Test statistic:
+* Q_log-rank = 10.5
+
+#### Degree of freedom: 
+* df = 1
+
+#### P-value: 
+* Pr(χ21 ≥  10.5) = 0.00117 < 0.05
+
+#### Conclusion: 
+We reject H0 at the significance level 0.05. The survival curves for patients in two hormone therapy groups are significantly different, and there is sufficient evidence to conclude that the three-drug regimen has better PFS compared to the two-drug regimen.
+
+```{r pfs_wilx}
+# repeat with wilxocon
+library(survMisc)
+
+pfs_wilx = ten(survfit(Surv(time, censor) ~ tx, data = midtermdata))
+comp(pfs_wilx)
+knitr::kable(attributes(pfs_wilx)$lrt[, c(1, 6:8)], "simple", digits = 4)
+
+# Same conclusion with Wilxocon Rank Test
+```
+
+
+are there any other variables significantly associated with PFS?
+```{r pfs_step2}
+library(survival)
+library(lmtest)
+library(gt)
+
+# age
+age_pfs = coxph(Surv(time, censor) ~ age,
+            data = midtermdata,
+            ties = "efron")
+summary(age_pfs)
+
+# cd4
+cd4_pfs = coxph(Surv(time, censor) ~ cd4,
+            data = midtermdata,
+            ties = "efron")
+summary(cd4_pfs)
+
+# hemophil
+hemophil_pfs = coxph(Surv(time, censor) ~ hemophil,
+            data = midtermdata,
+            ties = "efron")
+summary(hemophil_pfs)
+
+# ivdrug
+ivdrug_pfs = coxph(Surv(time, censor) ~ ivdrug,
+            data = midtermdata,
+            ties = "efron")
+summary(ivdrug_pfs)
+
+# karnof
+karnof_pfs = coxph(Surv(time, censor) ~ karnof,
+            data = midtermdata,
+            ties = "efron")
+summary(karnof_pfs)
+
+# priorzdv
+priorzdv_pfs = coxph(Surv(time, censor) ~ priorzdv,
+            data = midtermdata,
+            ties = "efron")
+summary(priorzdv_pfs)
+
+# raceth
+raceth_pfs = coxph(Surv(time, censor) ~ raceth,
+            data = midtermdata,
+            ties = "efron")
+summary(raceth_pfs)
+
+# sex
+sex_pfs = coxph(Surv(time, censor) ~ sex,
+            data = midtermdata,
+            ties = "efron")
+summary(sex_pfs)
+
+# strat2
+strat2_pfs = coxph(Surv(time, censor) ~ strat2,
+            data = midtermdata,
+            ties = "efron")
+summary(strat2_pfs)
+
+# tx
+tx_pfs = coxph(Surv(time, censor) ~ tx,
+            data = midtermdata,
+            ties = "efron")
+summary(tx_pfs)
+
+# multivariate Cox model
+multivar_pfs = coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4 + strat2,
+            data = midtermdata,
+            ties = "efron")
+
+summary(multivar_pfs)
+```
+
+reducing multivariable model using log partial likelihood ratio test
+```{r}
+# LRT using lmtest package
+library(lmtest)
+
+r_model <- coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4, data = midtermdata, ties = "efron")
+
+f_model <- coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4 + strat2 + raceth + ivdrug + hemophil + priorzdv, data = midtermdata, ties = "efron")
+
+lrtest(f_model, r_model)
+# since there is insufficient evidence to conclude the reduced model is better than the full, I will try another method.
+
+# selection tests
+library(MASS)
+stepwise_cox_model <- stepAIC(f_model, direction = "both")
+summary(stepwise_cox_model)
+lrtest(f_model, stepwise_cox_model)
+# There is insufficient evidence to conclude that the stepwise model is better than the full model. 
+
+lrtest(stepwise_cox_model, r_model)
+# Since the step wise model and reduced model are not significantly better than the full model, for the sake of parsimony I will choose the reduced model. 
+```
+
+Are there any significant effect modifiers for the relation between the treatment regimens and PFS?
+```{r}
+# test interactions (pfs 2)
+multivar_pfs2 = coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4 + cd4*karnof, 
+                      data = midtermdata, 
+                      ties = "efron")
+summary(multivar_pfs2)
+
+lrtest(r_model, multivar_pfs2)
+```
+There are no significant effect modifiers for the relation between the treatment regimens and PFS.
+
+```{r}
+# final model
+final_pfs <- coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4, data = midtermdata, ties = "efron")
+```
+
+
+Is there sufficient evidence that the three-drug regimen has better OS compared to the two-drug regimen?
+```{r OS_step1}
+# OS K-M table
+km_os = survfit(Surv(time_d, censor_d) ~ tx, data = midtermdata, conf.type = "log-log")
+
+summary(km_os)
+
+# log-rank test OS
+log_rank_OS <- survdiff(Surv(time_d, censor_d) ~ tx, data = midtermdata)
+
+library(ggsurvfit)
+
+# K-M plot
+survfit2(Surv(time_d, censor_d) ~ tx, data = midtermdata) |> 
+  ggsurvfit() +
+  add_pvalue(location = "annotation", 
+             caption = "Log-rank {p.value}") +
+  add_risktable() +
+  add_confidence_interval() +
+  add_censor_mark() +
+  add_legend_title(title = "OS Curve")
+```
+#### Our hypotheses:
+( where s1(t) is tx = 0 and s2(t) is tx = 1)
+* H0 :S1(t) = S2(t), for all t ≤ τ
+* Hα :One of the Sk (t) is different for some t ≤ τ
+
+#### Test statistic:
+* Q_log-rank = 4.1
+
+#### Degree of freedom: 
+* df = 1
+
+#### P-value: 
+* Pr(χ21 ≥  4.1) = 0.0438 < 0.05
+
+#### Conclusion: 
+We reject H0 at the significance level 0.05. The survival curves for patients in two hormone therapy groups are significantly different, and there is sufficient evidence to conclude that the three-drug regimen has better OS compared to the two-drug regimen.
+
+are there any other variables significantly associated with OS?
+```{r OS_step2}
+# univariate Cox models
+# age
+age_os = coxph(Surv(time_d, censor_d) ~ age,
+            data = midtermdata,
+            ties = "efron")
+summary(age_os)
+
+# cd4
+cd4_os = coxph(Surv(time_d, censor_d) ~ cd4,
+            data = midtermdata,
+            ties = "efron")
+summary(cd4_os)
+
+# hemophil
+hemophil_os = coxph(Surv(time_d, censor_d) ~ hemophil,
+            data = midtermdata,
+            ties = "efron")
+summary(hemophil_os)
+
+# ivdrug
+ivdrug_os = coxph(Surv(time_d, censor_d) ~ ivdrug,
+            data = midtermdata,
+            ties = "efron")
+summary(ivdrug_os)
+
+# karnof
+karnof_os = coxph(Surv(time_d, censor_d) ~ karnof,
+            data = midtermdata,
+            ties = "efron")
+summary(karnof_os)
+
+# priorzdv
+priorzdv_os = coxph(Surv(time_d, censor_d) ~ priorzdv,
+            data = midtermdata,
+            ties = "efron")
+summary(priorzdv_os)
+
+# raceth
+raceth_os = coxph(Surv(time_d, censor_d) ~ raceth,
+            data = midtermdata,
+            ties = "efron")
+summary(raceth_os)
+
+# sex
+sex_os = coxph(Surv(time_d, censor_d) ~ sex,
+            data = midtermdata,
+            ties = "efron")
+summary(sex_os)
+
+# strat2
+strat2_os = coxph(Surv(time_d, censor_d) ~ strat2,
+            data = midtermdata,
+            ties = "efron")
+summary(strat2_os)
+
+# tx
+tx_os = coxph(Surv(time_d, censor_d) ~ tx,
+            data = midtermdata,
+            ties = "efron")
+summary(tx_os)
+
+
+# multivariate Cox model
+multivar_os = coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof + cd4 + strat2,
+            data = midtermdata,
+            ties = "efron")
+
+summary(multivar_os)
+```
+
+reducing multivariable model using log partial likelihood ratio test
+```{r}
+full_model <- coxph(Surv(time_d, censor_d) ~ tx + age + sex + cd4 + strat2 + karnof + raceth + ivdrug + hemophil + priorzdv, data = midtermdata, ties = "efron")
+
+reduced_model <- coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof, data = midtermdata, ties = "efron")
+summary(reduced_model)
+
+# LRT using lmtest package
+lrtest(full_model, reduced_model)
+
+# since there is insufficient evidence to conclude the reduced model is better than the full, I will try another method.
+
+# selection tests
+library(MASS)
+stepwise_cox_model2 <- stepAIC(full_model, direction = "both")
+summary(stepwise_cox_model2)
+
+lrtest(full_model, stepwise_cox_model2)
+
+# There is insufficient evidence to conclude that the stepwise model is better than the full model. 
+
+# is the stepwise model better than the reduced model?
+lrtest(reduced_model, stepwise_cox_model2)
+```
+For the sake of parsimony, I will choose my initial reduced model over the stepwise model.
+
+Are there any significant effect modifiers for the relation between the treatment regimens and OS?
+```{r}
+# test interactions (OS 2)
+multivar_os2 = coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof + karnof*tx, 
+                      data = midtermdata, 
+                      ties = "efron")
+summary(multivar_os2)
+summary(multivar_os)
+```
+There are no significant effect modifiers for the relation between the treatment regimens and OS.
+
+```{r}
+#final model
+final_os <- coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof, data = midtermdata, ties = "efron")
+summary(reduced_model)
+```
+
