@@ -1,10 +1,25 @@
 ---
-title: "Midterm Project"
+title: "Regression II Midterm Project"
 author: "Camille Okonkwo"
-date: "2024-02-26"
-output: github_document
----
-
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 2
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{lipsum}
+- \pagestyle{fancy}
+- \fancyhead[R]{\thepage}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+editor_options: 
+  chunk_output_type: console
+--- 
+\newpage
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -18,8 +33,8 @@ library(gt)
 library(survMisc)
 library(MASS)
 ```
-
-### Step 0: Data Preparation
+\newpage
+# Data Preparation
 ```{r step_0}
 # loading data
 midtermdata = read_csv("data/midtermdata.csv")
@@ -55,7 +70,7 @@ midtermdata$karnof <- factor(
   ifelse(midtermdata$karnof %in% c(80, 70), 70, midtermdata$karnof),
   levels = c("100", "90", "70"))
 ```
-
+\newpage
 # Descriptive statistics
 ```{r}
 # data exploration
@@ -85,8 +100,9 @@ summary_table <- table1(
 
 print(summary_table)
 ```
+\newpage
 
-is there sufficient evidence that the three-drug regimen has better PFS compared to the two-drug regimen?
+# Is there sufficient evidence that the three-drug regimen has better PFS compared to the two-drug regimen?
 ```{r PFS_step1}
 library(survival)
 
@@ -125,23 +141,26 @@ survfit2(Surv(time, censor) ~ tx, data = midtermdata) |>
   add_censor_mark() +
   add_legend_title(title = "PFS Curve")
 ```
-#### Our hypotheses:
-( where s1(t) is tx = 0 and s2(t) is tx = 1)
+
+Our hypotheses: ( where s1(t) is tx = 0 and s2(t) is tx = 1)
 * H0 :S1(t) = S2(t), for all t ≤ τ
 * Hα :One of the Sk (t) is different for some t ≤ τ
 
-#### Test statistic:
+Test statistic:
 * Q_log-rank = 10.5
 
-#### Degree of freedom: 
+Degree of freedom: 
 * df = 1
 
-#### P-value: 
+P-value: 
 * Pr(χ21 ≥  10.5) = 0.00117 < 0.05
 
-#### Conclusion: 
-We reject H0 at the significance level 0.05. The survival curves for patients in two hormone therapy groups are significantly different, and there is sufficient evidence to conclude that the three-drug regimen has better PFS compared to the two-drug regimen.
+Conclusion: 
+* We reject H0 at the significance level 0.05. The survival curves for patients in two hormone therapy groups are significantly different, and there is sufficient evidence to conclude that the three-drug regimen has better PFS compared to the two-drug regimen.
 
+\newpage
+
+# Wilcoxon Test
 ```{r pfs_wilx}
 # repeat with wilxocon
 library(survMisc)
@@ -150,11 +169,11 @@ pfs_wilx = ten(survfit(Surv(time, censor) ~ tx, data = midtermdata))
 comp(pfs_wilx)
 knitr::kable(attributes(pfs_wilx)$lrt[, c(1, 6:8)], "simple", digits = 4)
 
-# Same conclusion with Wilxocon Rank Test
+# Same conclusion with Wilcoxon Rank Test
 ```
+\newpage
 
-
-are there any other variables significantly associated with PFS?
+# Are there any other variables significantly associated with PFS?
 ```{r pfs_step2}
 library(survival)
 library(lmtest)
@@ -227,8 +246,8 @@ multivar_pfs = coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4 + strat2
 
 summary(multivar_pfs)
 ```
-
-reducing multivariable model using log partial likelihood ratio test
+\newpage
+## Partial Likelihood Ratio Test
 ```{r}
 # LRT using lmtest package
 library(lmtest)
@@ -251,7 +270,7 @@ lrtest(stepwise_cox_model, r_model)
 # Since the step wise model and reduced model are not significantly better than the full model, for the sake of parsimony I will choose the reduced model. 
 ```
 
-Are there any significant effect modifiers for the relation between the treatment regimens and PFS?
+# Are there any significant effect modifiers for the relation between the treatment regimens and PFS?
 ```{r}
 # test interactions (pfs 2)
 multivar_pfs2 = coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4 + cd4*karnof, 
@@ -267,9 +286,9 @@ There are no significant effect modifiers for the relation between the treatment
 # final model
 final_pfs <- coxph(Surv(time, censor) ~ tx + sex + age + karnof + cd4, data = midtermdata, ties = "efron")
 ```
+\newpage
 
-
-Is there sufficient evidence that the three-drug regimen has better OS compared to the two-drug regimen?
+# Is there sufficient evidence that the three-drug regimen has better OS compared to the two-drug regimen?
 ```{r OS_step1}
 # OS K-M table
 km_os = survfit(Surv(time_d, censor_d) ~ tx, data = midtermdata, conf.type = "log-log")
@@ -291,24 +310,25 @@ survfit2(Surv(time_d, censor_d) ~ tx, data = midtermdata) |>
   add_censor_mark() +
   add_legend_title(title = "OS Curve")
 ```
-#### Our hypotheses:
+
+Our hypotheses:
 ( where s1(t) is tx = 0 and s2(t) is tx = 1)
 * H0 :S1(t) = S2(t), for all t ≤ τ
 * Hα :One of the Sk (t) is different for some t ≤ τ
 
-#### Test statistic:
+Test statistic:
 * Q_log-rank = 4.1
 
-#### Degree of freedom: 
+Degree of freedom: 
 * df = 1
 
-#### P-value: 
+P-value: 
 * Pr(χ21 ≥  4.1) = 0.0438 < 0.05
 
-#### Conclusion: 
-We reject H0 at the significance level 0.05. The survival curves for patients in two hormone therapy groups are significantly different, and there is sufficient evidence to conclude that the three-drug regimen has better OS compared to the two-drug regimen.
+Conclusion: 
+* We reject H0 at the significance level 0.05. The survival curves for patients in two hormone therapy groups are significantly different, and there is sufficient evidence to conclude that the three-drug regimen has better OS compared to the two-drug regimen.
 
-are there any other variables significantly associated with OS?
+# Are there any other variables significantly associated with OS?
 ```{r OS_step2}
 # univariate Cox models
 # age
@@ -379,9 +399,11 @@ multivar_os = coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof + cd4 + str
 
 summary(multivar_os)
 ```
+\newpage
 
-reducing multivariable model using log partial likelihood ratio test
+## Partial LRT Test
 ```{r}
+# 
 full_model <- coxph(Surv(time_d, censor_d) ~ tx + age + sex + cd4 + strat2 + karnof + raceth + ivdrug + hemophil + priorzdv, data = midtermdata, ties = "efron")
 
 reduced_model <- coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof, data = midtermdata, ties = "efron")
@@ -406,7 +428,8 @@ lrtest(reduced_model, stepwise_cox_model2)
 ```
 For the sake of parsimony, I will choose my initial reduced model over the stepwise model.
 
-Are there any significant effect modifiers for the relation between the treatment regimens and OS?
+\newpage
+# Are there any significant effect modifiers for the relation between the treatment regimens and OS?
 ```{r}
 # test interactions (OS 2)
 multivar_os2 = coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof + karnof*tx, 
@@ -416,7 +439,9 @@ summary(multivar_os2)
 summary(multivar_os)
 ```
 There are no significant effect modifiers for the relation between the treatment regimens and OS.
+\newpage
 
+# Final Model Display
 ```{r}
 #final model
 final_os <- coxph(Surv(time_d, censor_d) ~ tx + sex + age + karnof, data = midtermdata, ties = "efron")

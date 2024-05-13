@@ -426,6 +426,21 @@ survfit2(Surv(time, censor) ~ tx, data = midtermdata) |>
   add_legend_title(title = "PFS Curve")
 ```
 
+    ## Warning in ggplot2::geom_blank(): All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 435 rows.
+    ## ℹ Did you mean to use `annotate()`?
+
 ![](midterm_files/figure-gfm/PFS_step1-1.png)<!-- --> \#### Our
 hypotheses: ( where s1(t) is tx = 0 and s2(t) is tx = 1) \* H0 :S1(t) =
 S2(t), for all t ≤ τ \* Hα :One of the Sk (t) is different for some t ≤
@@ -1120,6 +1135,25 @@ survfit2(Surv(time_d, censor_d) ~ tx, data = midtermdata) |>
   add_censor_mark() +
   add_legend_title(title = "OS Curve")
 ```
+
+    ## Warning in ggplot2::geom_blank(): All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
+    ## All aesthetics have length 1, but the data has 405 rows.
+    ## ℹ Did you mean to use `annotate()`?
 
 ![](midterm_files/figure-gfm/OS_step1-1.png)<!-- --> \#### Our
 hypotheses: ( where s1(t) is tx = 0 and s2(t) is tx = 1) \* H0 :S1(t) =
